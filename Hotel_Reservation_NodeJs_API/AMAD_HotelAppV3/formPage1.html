@@ -1,0 +1,57 @@
+<html>
+<head>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js" integrity="sha384-smHYKdLADwkXOn1EmN1qk/HfnUcbVRZyYmZ4qpPea6sjB/pTJ0euyQp0Mk8ck+5T"
+        crossorigin="anonymous"></script>
+
+        
+
+<title>
+    Registeration Form
+</title>
+</head>
+
+<body><form>
+<table>
+    <tr>
+<th>
+    Type START in the box
+</th>
+<td>
+<input type="text" name="phoneNo" id="getPhoneNo">
+
+</td>
+    </tr>
+
+    <tr>
+<td colspan="2"> <input type="button"  value="Submit" id="buttonClick"></td>
+
+    </tr>
+</table>
+    </form>
+
+    <script>
+   
+var button=document.getElementById("buttonClick")
+button.onclick=function()
+         {
+            var txt=document.getElementById("getPhoneNo").value;
+            console.log(txt);
+            alert(txt);
+            $.ajax({
+url:'/products',
+contentType:'application/json',
+success:function(response)
+{
+    console.log(response);
+}
+            });
+
+         };
+                </script>
+</body>
+
+</html>

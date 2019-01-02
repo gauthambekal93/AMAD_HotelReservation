@@ -1,0 +1,439 @@
+//import { Mongoose } from 'mongoose';
+
+const mysql=require('mysql');
+const express=require('express');
+var app=express();
+const bodyparser=require('body-parser');
+const jwt=require('jsonwebtoken');
+const LOGOUT=require('express-passport-logout');
+app.use(bodyparser.json());
+const accountSid='AC5084d9d3c8af2b586aa4241ebe8bd5b7';
+const authToken='ea0ad68f4a89c1b259976b497008d4d5';
+const client=require('twilio')(accountSid,authToken);
+const MessagingResponse=require('twilio').twiml.MessagingResponse;
+const mongoose=require('mongoose');
+const twiml = new MessagingResponse();
+
+var options = ["Headache", "Dizziness", "Nausea", "Fatigue", "Sadness", "None"]; //in db
+var step = 0;  //in db
+var symptom = ''; //in db
+var symptomid = 0; //in db
+var count = 0;  //in db
+
+var socketTimer;
+    function startTimer(to,from) {
+            console.log("Timer statrted!");
+            var countdown = 50000;
+            socketTimer = setTimeout(function () {
+                client.messages.create({
+                    to:`${from}`,
+                    from:`${to}`,
+                    body:'We will see you next time.'  
+                }) 
+            }, 50000);
+        }
+
+    function stopTimer (){
+        clearTimeout(socketTimer);
+    }
+
+let MessageSchema=new mongoose.Schema({
+    phoneNumber:String,
+    symptomName1:String,
+    symptomName2:String,
+    symptomName3:String
+})
+
+let Message=mongoose.model('Message',MessageSchema);
+
+app.use(bodyparser.urlencoded({extended:false}))
+mongoose.connect('mongodb://gautham:hydrogen01@ds155414.mlab.com:55414/smsdb',
+{useMongoClient:true}).then(()=>{console.log('Mongoose db connected');
+})
+
+
+
+app.post('/smsReceive',(req,res)=>{
+    
+  let from=req.body.From;
+  let to=req.body.To;
+  let body=req.body.Body;
+
+  Message.find({phoneNumber: req.body.From},(err,message)=>{
+
+        if(message.length !==0)
+{
+
+//Existing User
+
+if(step==0 && body==='START'){
+    client.messages.create({
+        to:`${from}`,
+        from:`${to}`,
+        body:'Please indicate your symptom (1)Headache, (2)Dizziness, (3)Nausea, (4)Fatigue, (5)Sadness, (0)None'  
+    }) 
+     step = 1;
+ //    startTimer(to,from);  ...made changes
+} 
+else if (step==1 && body == 0){
+   // stopTimer();           ...made changes
+    client.messages.create({
+        to:`${from}`,
+        from:`${to}`,
+        body:'Thank you and we will check with you later'  
+    }) 
+     step = 0;
+}
+else if (step==1 && req.body.Body > 0 && req.body.Body < 6)
+{  // stopTimer();
+    symptomid = req.body.Body-1
+    symptom = options[symptomid];
+    client.messages.create({
+        to:`${from}`,
+        from:`${to}`,
+        body:'On a scale from 0 (none) to 4 (severe), how would you rate your "'+ symptom +'" in the last 24 hours?' 
+    }) 
+    step = 2;
+}
+else if (step==1 && (req.body.Body < 0 || req.body.Body > 5))
+{   client.messages.create({
+    to:`${from}`,
+    from:`${to}`,
+    body:'Please enter a number from 0 to 5' 
+})
+}
+else if (step==2 && (req.body.Body < 0 || req.body.Body > 4))
+{
+    client.messages.create({
+        to:`${from}`,
+        from:`${to}`,
+        body:'Please enter a number from 0 to 4' 
+    })
+}
+else if(step==2)
+{
+    var nbr = Number(req.body.Body)
+    switch (nbr) 
+    {
+        case 0:
+        client.messages.create({
+            to:`${from}`,
+            from:`${to}`,
+            body:'You do not have a '+symptom
+        })
+        break;
+      case 1:
+      client.messages.create({
+        to:`${from}`,
+        from:`${to}`,
+        body:'You have a mild '+symptom
+    })
+        break;
+      case 2:
+      client.messages.create({
+        to:`${from}`,
+        from:`${to}`,
+        body:'You have a mild '+symptom
+    })
+        break;
+      case 3:
+      client.messages.create({
+        to:`${from}`,
+        from:`${to}`,
+        body:'You have a moderate '+symptom
+    })
+      break;
+      case 4:
+      client.messages.create({
+        to:`${from}`,
+        from:`${to}`,
+        body:'You have a severe '+symptom
+    })
+        break;
+    }//case statement ends here
+    count++;
+    
+    if (count<4){
+        step=1;
+        options.splice(symptomid,1);
+        var str='Please indicate your symptom';
+        for (i = 1; i < options.length; i++) {
+            str += " (" + i + ")"+options[i-1] +",";
+          }
+          str +=" (0)None";  //str will be needed in db
+      
+        client.messages.create({
+            to:`${from}`,
+            from:`${to}`,
+            body:str
+        })
+    }
+}
+else{
+    client.messages.create({
+        to:`${from}`,
+        from:`${to}`,
+        body:'Please text START to enroll into the study'
+    })
+}
+}  //outer if ends here
+/*
+else
+{
+    //New user
+    if(body==='START')
+    {
+        let newMessage=new Message();
+        newMessage.phoneNumber=from;
+        newMessage.save(()=>{
+client.messages.create({
+    to:`${from}`,
+    from:`${to}`,
+    body:'Welcome to the study. Please indicate your symptom (1)Headache, (2)Dizziness, (3)Nausea, (4)Fatigue, (5)Sadness, (0)None'
+
+})      
+    })
+
+    console.log("This is a new user");
+    } //inner if ends here
+}*/  //else ends here
+else{
+    let newMessage=new Message();
+        newMessage.phoneNumber=from;
+        newMessage.symptomName1='fever';
+        newMessage.symptomName2='cholera';
+        newMessage.symptomName3='malaria';
+        newMessage.save();
+}
+  }) //Message.find() ends here
+  res.end();
+    
+});//the post method ends here
+                
+
+
+app.listen(7000,()=>console.log('Express server is running at port: 7000'));
+
+
+//TEST APPLICATION
+
+
+let TestSchema=new mongoose.Schema({
+    phoneNumberFrom:String,
+    phoneNumberTo:String,
+    body:String,
+    steps:String,
+    symptomsList:Array,
+    symptomids:String,
+    count:Number,
+    Userresponse:String
+})
+
+let Test=mongoose.model('Test',TestSchema);
+
+
+app.post('/smsTest',(req,res)=>{
+    testData=new Test();
+testData.phoneNumberFrom="13579";
+testData.steps="10";
+testData.symptoms=["Headache", "Dizziness", "Nausea", "Fatigue", "Sadness", "None"];
+testData.symptomids="5";
+testData.count="4";
+testData.save();
+    res.end();
+})
+
+
+app.post('/smsTestUpdate',(req,res)=>{
+    /*Test.findOneAndUpdate({_id:"5bacf0866a850850e890dba0"},
+    {$set:{steps:"35"}}
+    );
+    console.log("updated db")*/
+     Test.update({_id:"5bacf3570197e0560063d07e"},{$set:{symptoms:["A","B","C"]}}).then(result=>
+    {
+        console.log(result);
+    })
+    
+    res.end();
+       /* Test.findById("5bacf0866a850850e890dba0",function(err,doc){
+doc.phoneNumberFrom='0000000';
+doc.save();
+res.end();
+        })*/
+
+})
+
+app.post('/smsTestRead',(req,res)=>{
+Test.find({phoneNumberFrom:"13579"},(err,data)=>{
+    console.log(data[0].steps);
+})
+res.end();
+})
+
+
+
+                     //SMS TEST VERSION 2
+
+app.post('/smsReceiveTest',(req,res)=>{
+    
+    let from=req.body.From;
+    let to=req.body.To;
+    let body=req.body.Body;
+
+Test.find({phoneNumberFrom: req.body.From},(err,message)=>{
+
+    if(message.length !==0)
+{
+console.log("Existing user");
+Test.find({phoneNumberFrom:from},(err,data)=>{
+    //console.log(data[0].steps); 
+    var arraySize=data[0].symptomsList.length;
+console.log('size of array is '+arraySize);
+    if(body==='START'){  //WORKING //there was another condition to check step==0
+        console.log('Please indicate your symptom (1)Headache, (2)Dizziness, (3)Nausea, (4)Fatigue, (5)Sadness, (0)None');
+         
+         Test.update({phoneNumberFrom:from},{$set:{steps:1}}).then(result=>  {  })
+            
+    }//inner if ends here
+    
+    else if (data[0].steps==1 && body == 0){   //WORKING
+        console.log('Thank you and we will check with you later' ) 
+        Test.update({phoneNumberFrom:from},{$set:{count:0}}).then(result=>  {  })
+        Test.update({phoneNumberFrom:from},{$set:{steps:1}}).then(result=>  {  })
+        Test.update({phoneNumberFrom:from},{$set:{symptomids:0}}).then(result=>  {  })
+        Test.update({phoneNumberFrom:from},{$set:{symptomsList:options}}).then(result=>  {  })
+
+     }
+
+     else if (data[0].steps==1 && (req.body.Body > 0 && req.body.Body < arraySize)) //WORKING It was <6
+{  
+    Test.update({phoneNumberFrom:from},{$set:{symptomids:req.body.Body-1}}).then(result=>  {
+       
+        Test.find({phoneNumberFrom:from},(err,data)=>{
+            console.log('SYMPTOM ID IS '+data[0].symptomids)
+            symptom=data[0].symptomsList[data[0].symptomids];
+            console.log(symptom);
+            console.log('On a scale from 0 (none) to 4 (severe), how would you rate your "'+ symptom +'" in the last 24 hours?')
+     
+            Test.update({phoneNumberFrom:from},{$set:{steps:2}}).then(result=>  {  })    
+       Test.update({phoneNumberFrom:from},{$set:{Userresponse:data[0].Userresponse+symptom}})
+             .then(result=>{ });    
+    })
+    //the above code was here not inside then
+      })
+    
+   
+}
+
+else if (data[0].steps==1 && (req.body.Body < 0 || req.body.Body > arraySize-1))
+{   console.log('Please enter a number from 0 to '+arraySize-1);
+}
+
+else if (data[0].steps==2 && (req.body.Body < 0 || req.body.Body > 4)) //WORKING
+{
+  console.log('Please enter a number from 0 to 4' );
+}
+
+else if(data[0].steps==2) //within this there will be case statements 
+{  //SEEMS WORKING TEST 0,1,2,4
+    var nbr = Number(req.body.Body)
+Test.update({phoneNumberFrom:from},{$set:{Userresponse:data[0].Userresponse+nbr}})
+        .then(result=>{  });
+
+    switch (nbr) 
+    {
+        case 0:
+        console.log('You do not have a '+symptom);
+        break;
+        case 1:
+        console.log('You have a mild '+symptom);
+          break;
+          case 2:
+        console.log('You have a mild '+symptom);
+            break;
+            case 3:
+      console.log('You have a moderate '+symptom);
+      break;
+      case 4:
+      console.log('You have a severe '+symptom);
+        break;
+    }  //case statement ends here
+                     //RESET STEP TO 1
+    Test.update({phoneNumberFrom:from},{$set:{steps:1}}).then(result=>  {    });
+    
+     Test.find({phoneNumberFrom:from},(err,data)=>{
+        //count=data[0].count;
+      //  console.log('count is');
+    //    console.log(data[0].count);
+       
+        if (data[0].count<3){
+            //Update the Symptoms list
+            
+            data[0].symptomsList.splice(data[0].symptomids,1);
+            console.log('symtom id is '+data[0].symptomids);
+            console.log('array is '+data[0].symptomsList);
+        Test.update({phoneNumberFrom:from},
+            { $set:{symptomsList:data[0].symptomsList}})
+            .then(result={  
+                
+             });
+
+            var str='Please indicate your symptom';
+            
+            for (i = 1; i < data[0].symptomsList.length; i++) {
+                str += " (" + i + ")"+data[0].symptomsList[i-1] +",";
+              }
+              str +=" (0)None";
+            console.log(str);
+       //INCREMENT COUNTER 
+    Test.update({phoneNumberFrom:from},{$set:{count:(data[0].count)+1}}).then(result=>  { 
+       
+    })
+        }
+        if(data[0].count>=3){
+            console.log("Your survey is completed");
+            Test.update({phoneNumberFrom:from},{$set:{count:0}}).then(result=>  {  })
+            Test.update({phoneNumberFrom:from},{$set:{steps:1}}).then(result=>  {  })
+            Test.update({phoneNumberFrom:from},{$set:{symptomids:0}}).then(result=>  {  })
+            Test.update({phoneNumberFrom:from},{$set:{symptomsList:options}}).then(result=>  {  })
+
+            
+        }
+     })
+
+}
+})
+
+}  //User Existing user logic ends here
+
+else
+{
+    //New user
+console.log("new user");
+
+    if(body==='START')
+    {
+        console.log('Welcome new user.Please indicate your symptom (1)Headache, (2)Dizziness, (3)Nausea, (4)Fatigue, (5)Sadness, (0)None');
+        let test=new Test();
+        
+        test.phoneNumberFrom=from;
+        test.phoneNumberTo=to;
+        test.body=body;
+        test.steps=1; //it was previously zero
+        test.symptomsList=["Headache", "Dizziness", "Nausea", "Fatigue", "Sadness", "None"];
+        test.symptomids=0;
+        test.count=0;
+        test.Userresponse="";
+        test.save();
+    } 
+}
+})
+res.end();
+})  
+
+app.post('/smsReceiveTestModule',(req,res)=>{
+    Test.find({phoneNumberFrom:"+12345"},(err,data)=>{
+        console.log(data[0].symptomsList[data[0].symptomids]);
+        res.end();
+    })
+})

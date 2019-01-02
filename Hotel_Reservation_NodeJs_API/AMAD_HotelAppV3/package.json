@@ -1,0 +1,24 @@
+{
+  "name": "advancedmobileappdevelopment",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "arraylist": "^0.1.0",
+    "body-parser": "^1.18.3",
+    "express": "^4.16.3",
+    "express-passport-logout": "^0.1.0",
+    "jsonwebtoken": "^8.3.0",
+    "moment": "^2.22.2",
+    "mongoose": "^5.2.17",
+    "mysql": "^2.16.0",
+    "nodemon": "^1.18.4",
+    "twilio": "^3.19.2"
+  }
+}
